@@ -1,4 +1,3 @@
-
 return {
   'neovim/nvim-lspconfig',
   dependencies = {
@@ -115,7 +114,7 @@ return {
         end
       end,
     })
-
+    local root_markers = { 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb', 'bun.lock', 'deno.lock' }
     -- LSP servers and clients are able to communicate to each other what features they support.
     -- By default, Neovim doesn't support everything that is in the LSP specification.
     -- When you add nvim-cmp, luasnip, etc. Neovim now has *more* capabilities.
@@ -131,7 +130,22 @@ return {
     -- - capabilities (table): Override fields in capabilities. Can be used to disable certain LSP features.
     -- - settings (table): Override the default settings passed when initializing the server.
     local servers = {
-      ts_ls = {},
+      ts_ls = {
+        root_dir = function(bufnr, on_dir)
+          -- The project root is where the LSP can be started from
+          -- As stated in the documentation above, this LSP supports monorepos and simple projects.
+          -- We select then from the project root, which is identified by the presence of a package
+          -- manager lock file.
+          -- Give the root markers equal priority by wrapping them in a table
+          root_markers = vim.fn.has 'nvim-0.11.3' == 1 and { root_markers } or root_markers
+          local project_root = vim.fs.root(bufnr, root_markers)
+          if not project_root then
+            project_root = vim.fn.getcwd()
+          end
+
+          on_dir(project_root)
+        end,
+      },
       ruff = {},
       pylsp = {
         settings = {
@@ -197,5 +211,16 @@ return {
       vim.lsp.config(server, cfg)
       vim.lsp.enable(server)
     end
+
+    vim.diagnostic.config {
+      signs = {
+        text = {
+          [vim.diagnostic.severity.ERROR] = ' ', -- or other icon of your choice here, this is just what my config has:
+          [vim.diagnostic.severity.WARN] = ' ',
+          [vim.diagnostic.severity.INFO] = ' ',
+          [vim.diagnostic.severity.HINT] = ' ',
+        },
+      },
+    }
   end,
 }
